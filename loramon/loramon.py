@@ -156,6 +156,11 @@ class RNode():
 		self.conf_frequency = None
 		self.conf_bandwidth = None
 
+		#duration of time, in seconds, to capture
+		self.duration_to_capture_for = 0
+		#total number of packets captured
+		self.number_of_packets_received = 0
+
 	def readLoop(self):
 		try:
 			in_frame = False
@@ -164,8 +169,15 @@ class RNode():
 			data_buffer = b""
 			command_buffer = b""
 			last_read_ms = int(time.time()*1000)
+			loop_start_time = time.time()
 
 			while self.serial.is_open:
+				#if there is a time to capture specified
+				if (self.duration_to_capture_for > 0):
+					seconds_elapsed = int(time.time()-loop_start_time)
+					if(seconds_elapsed > 3):
+						return (self.number_of_packets_received)
+
 				if self.serial.in_waiting:
 					byte = ord(self.serial.read(1))
 					last_read_ms = int(time.time()*1000)
@@ -175,6 +187,11 @@ class RNode():
 						self.processIncoming(data_buffer)
 						data_buffer = b""
 						command_buffer = b""
+						self.number_of_packets_received += 1
+						if (self.number_of_packets_received > 255):
+							number_of_packets_received_exit_code = 255
+						else:
+							number_of_packets_received_exit_code = self.number_of_packets_received
 					elif (in_frame and byte == KISS.FEND and command == KISS.CMD_ROM_READ):
 						self.eeprom = data_buffer
 						in_frame = False
@@ -296,7 +313,7 @@ class RNode():
 		except Exception as e:
 			RNS.log("Error while reading from serial port")
 			traceback.print_exc()
-			exit()
+			return(0)
 
 	def processIncoming(self, data):
 		self.callback(data, self)
@@ -402,6 +419,11 @@ class RNode():
 		if written != len(kiss_command):
 			raise IOError("An IO error occurred while configuring promiscuous mode for "+self(str))
 
+#returned number of packets that were captured
+#the return value in Linux is only 8 bits. we need to cap it
+#make this a global for use, even if rnode isn't initialized
+number_of_packets_received_exit_code = 0
+
 def device_probe(rnode):
 	sleep(2.5)
 	rnode.detect()
@@ -431,7 +453,7 @@ def packet_captured(data, rnode_instance):
 			file.close()
 		except Exception as e:
 			RNS.log("Error while writing packet to disk")
-			os._exit(255)
+			os._exit(number_of_packets_received_exit_code)
 
 
 def main():
@@ -443,7 +465,7 @@ def main():
 		print("RNode Config Utility needs pyserial to work.")
 		print("You can install it with: pip3 install pyserial")
 		print("")
-		exit()
+		exit(number_of_packets_received_exit_code)
 
 	import serial
 
@@ -458,6 +480,7 @@ def main():
 		parser.add_argument("--sf", action="store", metavar="factor", type=int, default=None, help="Spreading factor")
 		parser.add_argument("--cr", action="store", metavar="rate", type=int, default=None, help="Coding rate")
 		parser.add_argument("--implicit", action="store", metavar="length", type=int, default=None, help="Packet length in implicit header mode")
+		parser.add_argument("--duration", action="store", metavar="seconds", type=int, default=0,help="Duration of time to capture packets")
 
 		parser.add_argument("port", nargs="?", default=None, help="Serial port where RNode is attached", type=str)
 		args = parser.parse_args()
@@ -504,13 +527,14 @@ def main():
 			except Exception as e:
 				RNS.log("Could not open the specified serial port. The contained exception was:")
 				RNS.log(str(e))
-				exit()
+				exit(number_of_packets_received_exit_code)
 
 			rnode = RNode(rnode_serial)
 			rnode.callback = packet_captured
 			rnode.console_output = console_output
 			rnode.write_to_disk = write_to_disk
 			rnode.write_dir = write_dir
+			rnode.duration_to_capture_for = args.duration
 
 			thread = threading.Thread(target=rnode.readLoop)
 			thread.setDaemon(True)
@@ -521,7 +545,7 @@ def main():
 			except Exception as e:
 				RNS.log("Serial port opened, but RNode did not respond.")
 				print(e)
-				exit()
+				exit(number_of_packets_received_exit_code)
 
 			if not (args.freq and args.bw and args.sf and args.cr):
 				RNS.log("Please input startup configuration:")
@@ -575,17 +599,18 @@ def main():
 			if not args.W and not args.console:
 				RNS.log("Warning! No output destination specified! You won't see any captured packets.")
 
-			while True:
-				input()
+			#wait for the thread to finish
+			thread.join()
+			exit(number_of_packets_received_exit_code)
 		else:
 			print("")
 			parser.print_help()
 			print("")
-			exit()
+			exit(number_of_packets_received_exit_code)
 
 	except KeyboardInterrupt:
 		print("")
-		exit()
+		exit(number_of_packets_received_exit_code)
 
 if __name__ == "__main__":
 	main()
