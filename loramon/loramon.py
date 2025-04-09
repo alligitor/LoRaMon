@@ -12,12 +12,15 @@ import traceback
 from importlib import util
 
 class RNS():
+	log_enabled = True
+
 	@staticmethod
 	def log(msg):
-		logtimefmt   = "%Y-%m-%d %H:%M:%S"
-		timestamp = time.time()
-		logstring = "["+time.strftime(logtimefmt)+"] "+msg
-		print(logstring)
+		if RNS.log_enabled:
+			logtimefmt   = "%Y-%m-%d %H:%M:%S"
+			timestamp = time.time()
+			logstring = "["+time.strftime(logtimefmt)+"] "+msg
+			print(logstring)
 
 	@staticmethod
 	def hexrep(data, delimit=True):
@@ -160,6 +163,13 @@ class RNode():
 		self.duration_to_capture_for = 0
 		#total number of packets captured
 		self.number_of_packets_received = 0
+		self.capture_start_time = time.time()
+
+	def setCapturDuration(self, seconds):
+		#set the start time, first
+		self.capture_start_time = time.time()
+		#set seconds after setting the time, to eliminate race issues with the thread
+		self.duration_to_capture_for = seconds
 
 	def readLoop(self):
 		try:
@@ -169,13 +179,12 @@ class RNode():
 			data_buffer = b""
 			command_buffer = b""
 			last_read_ms = int(time.time()*1000)
-			loop_start_time = time.time()
 
 			while self.serial.is_open:
-				#if there is a time to capture specified
+				#if there is a time to capture specified and rnode is detected
 				if (self.duration_to_capture_for > 0):
-					seconds_elapsed = int(time.time()-loop_start_time)
-					if(seconds_elapsed > 3):
+					seconds_elapsed = int(time.time() - self.capture_start_time)
+					if(seconds_elapsed > self.duration_to_capture_for):
 						return (self.number_of_packets_received)
 
 				if self.serial.in_waiting:
@@ -481,6 +490,7 @@ def main():
 		parser.add_argument("--cr", action="store", metavar="rate", type=int, default=None, help="Coding rate")
 		parser.add_argument("--implicit", action="store", metavar="length", type=int, default=None, help="Packet length in implicit header mode")
 		parser.add_argument("--duration", action="store", metavar="seconds", type=int, default=0,help="Duration of time to capture packets")
+		parser.add_argument("-Q", action="store_true", help="Quite mode, no logging")
 
 		parser.add_argument("port", nargs="?", default=None, help="Serial port where RNode is attached", type=str)
 		args = parser.parse_args()
@@ -488,6 +498,9 @@ def main():
 		console_output = False
 		write_to_disk = False
 		write_dir = None
+
+		if args.Q:
+			RNS.log_enabled = False
 
 		if args.console:
 			console_output = True
@@ -534,7 +547,6 @@ def main():
 			rnode.console_output = console_output
 			rnode.write_to_disk = write_to_disk
 			rnode.write_dir = write_dir
-			rnode.duration_to_capture_for = args.duration
 
 			thread = threading.Thread(target=rnode.readLoop)
 			thread.daemon = True
@@ -595,6 +607,11 @@ def main():
 			rnode.setPromiscuousMode(True)
 			sleep(0.5)
 			RNS.log("RNode in LoRa promiscuous mode and listening")
+
+			# set the duration here, after radio has been initialized
+			rnode.setCapturDuration(args.duration)
+
+			RNS.log(f"Capture Duration {rnode.duration_to_capture_for}")
 
 			if not args.W and not args.console:
 				RNS.log("Warning! No output destination specified! You won't see any captured packets.")
