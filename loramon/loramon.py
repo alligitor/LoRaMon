@@ -537,7 +537,7 @@ def main():
 			rnode.duration_to_capture_for = args.duration
 
 			thread = threading.Thread(target=rnode.readLoop)
-			thread.setDaemon(True)
+			thread.daemon = True
 			thread.start()
 
 			try:
