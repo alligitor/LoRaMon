@@ -7,6 +7,7 @@ This utility allows you to sniff LoRa networks with an [RNode](https://unsigned.
 ```sh
 usage: loramon [-h] [-C] [-W directory] [--freq Hz] [--bw Hz] [--txp dBm]
                [--sf factor] [--cr rate]
+               [--duration seconds] [-Q]
                [port]
 
 LoRa packet sniffer for RNode hardware.
@@ -23,6 +24,8 @@ optional arguments:
   --txp dBm      TX power in dBm
   --sf factor    Spreading factor
   --cr rate      Coding rate
+  --duration s   Duration to scan for in seconds
+  --Q            Quite mode. Don't log any messages after start up
 ```
 
 ## Installation
