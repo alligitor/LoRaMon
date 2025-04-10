@@ -59,6 +59,10 @@ class KISS():
 	CMD_STAT_TX		= 0x22
 	CMD_STAT_RSSI	= 0x23
 	CMD_STAT_SNR	= 0x24
+	CMD_STAT_CHTM   = 0x25
+	CMD_STAT_PHYPRM = 0x26
+	CMD_STAT_BAT    = 0x27
+	CMD_STAT_CSMA   = 0x28
 	CMD_BLINK		= 0x30
 	CMD_RANDOM		= 0x40
 	CMD_FW_VERSION  = 0x50
@@ -240,7 +244,6 @@ class RNode():
 									self.r_frequency = command_buffer[0] << 24 | command_buffer[1] << 16 | command_buffer[2] << 8 | command_buffer[3]
 									RNS.log("Radio reporting frequency is "+str(self.r_frequency/1000000.0)+" MHz")
 									self.updateBitrate()
-
 						elif (command == KISS.CMD_BANDWIDTH):
 							if (byte == KISS.FESC):
 								escape = True
@@ -256,7 +259,6 @@ class RNode():
 									self.r_bandwidth = command_buffer[0] << 24 | command_buffer[1] << 16 | command_buffer[2] << 8 | command_buffer[3]
 									RNS.log("Radio reporting bandwidth is "+str(self.r_bandwidth/1000.0)+" KHz")
 									self.updateBitrate()
-
 						elif (command == KISS.CMD_FW_VERSION):
 							if (byte == KISS.FESC):
 								escape = True
@@ -272,7 +274,6 @@ class RNode():
 									self.major_version = command_buffer[0]
 									self.minor_version = command_buffer[1]
 									self.updateVersion()
-
 						elif (command == KISS.CMD_TXPOWER):
 							self.r_txpower = byte
 							RNS.log("Radio reporting TX power is "+str(self.r_txpower)+" dBm")
@@ -308,7 +309,67 @@ class RNode():
 							self.r_stat_rssi = byte - self.rssi_offset
 						elif (command == KISS.CMD_STAT_SNR):
 							self.r_stat_snr = int.from_bytes(bytes([byte]), byteorder="big", signed=True) * 0.25
-						
+						elif (command == KISS.CMD_STAT_BAT):
+							if (byte == KISS.FESC):
+								escape = True
+							else:
+								if (escape):
+									if (byte == KISS.TFEND):
+										byte = KISS.FEND
+									if (byte == KISS.TFESC):
+										byte = KISS.FESC
+									escape = False
+								command_buffer = command_buffer+bytes([byte])
+								if (len(command_buffer) == 2):
+									None
+									#print(f"battery state {command_buffer[0]}, battery % {command_buffer[1]}")
+						elif (command == KISS.CMD_STAT_CHTM):
+							if (byte == KISS.FESC):
+								escape = True
+							else:
+								if (escape):
+									if (byte == KISS.TFEND):
+										byte = KISS.FEND
+									if (byte == KISS.TFESC):
+										byte = KISS.FESC
+									escape = False
+								command_buffer = command_buffer+bytes([byte])
+								if (len(command_buffer) == 11):
+									None
+									#print(f"CMD_STAT_CHTM")
+						elif (command == KISS.CMD_STAT_PHYPRM):
+							if (byte == KISS.FESC):
+								escape = True
+							else:
+								if (escape):
+									if (byte == KISS.TFEND):
+										byte = KISS.FEND
+									if (byte == KISS.TFESC):
+										byte = KISS.FESC
+									escape = False
+								command_buffer = command_buffer+bytes([byte])
+								if (len(command_buffer) == 12):
+									None
+									#print(f"CMD_STAT_PHYPRM")
+						elif (command == KISS.CMD_PROMISC):
+							if (byte == KISS.FESC):
+								escape = True
+							else:
+								if (escape):
+									if (byte == KISS.TFEND):
+										byte = KISS.FEND
+									if (byte == KISS.TFESC):
+										byte = KISS.FESC
+									escape = False
+								command_buffer = command_buffer+bytes([byte])
+								if (len(command_buffer) == 1):
+									RNS.log("Radio reporting promiscuous mode is " + str(command_buffer[0]))
+						else:
+							print(f"Received unhandled command {hex(command)}")
+					else:
+						#this means we are getting bytes out side of a KISS.FEND ... KISS.FEND bracket
+						#print(f"Unexpected byte {hex(byte)}")
+						None
 				else:
 					time_since_last = int(time.time()*1000) - last_read_ms
 					if len(data_buffer) > 0 and time_since_last > self.timeout:
@@ -606,7 +667,6 @@ def main():
 			rnode.initRadio()
 			rnode.setPromiscuousMode(True)
 			sleep(0.5)
-			RNS.log("RNode in LoRa promiscuous mode and listening")
 
 			# set the duration here, after radio has been initialized
 			rnode.setCapturDuration(args.duration)
