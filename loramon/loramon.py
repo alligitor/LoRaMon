@@ -163,6 +163,23 @@ class RNode():
 		self.conf_frequency = None
 		self.conf_bandwidth = None
 
+		#channel parameters
+		self.ats = None  #Air time, short term
+		self.atl = None  #air time, long term
+		self.cls = None  #Channel utilization, short term
+		self.cll = None  #Channel utilization, long term
+		self.crs = None  #Current RSSI
+		self.nfl = None  #Current noise floor
+		self.ntf = None  #Interference
+
+		#phy parameters
+		self.lst = None  #Symbol time
+		self.lsr = None  #Symbol rate
+		self.prs = None  #Preamble length
+		self.prt = None  #PRT
+		self.cst = None  #CSMA Slot MS
+		self.dft = None  #DIFS MS
+
 		#duration of time, in seconds, to capture
 		self.duration_to_capture_for = 0
 		#total number of packets captured
@@ -321,12 +338,38 @@ class RNode():
 											RNS.log(f"Wrong number of bytes {len(data_buffer)} for battery")
 									case KISS.CMD_STAT_CHTM:
 										if (len(data_buffer) == 11):
-											RNS.log("Radio reporting CHTM")
+											self.ats = data_buffer[0] << 8 | data_buffer[1]
+											self.atl = data_buffer[2] << 8 | data_buffer[3]
+											self.cls = data_buffer[4] << 8 | data_buffer[5]
+											self.cll = data_buffer[6] << 8 | data_buffer[7]
+											self.crs = data_buffer[8]					
+											self.nfl = data_buffer[9]					
+											self.ntf = data_buffer[10]					
+											RNS.log(f"Radio reporting CHTM: " +
+													f"ats:{self.ats}, " +
+													f"atl:{self.atl}, " +
+													f"cls:{self.cls}, " +
+													f"cll:{self.cll}, " +
+													f"crs:{self.crs}, " +
+													f"nfl:{self.nfl}, " +
+													f"ntf:{self.ntf}")
 										else:
 											RNS.log(f"Wrong number of bytes {len(data_buffer)} for chtm")
 									case KISS.CMD_STAT_PHYPRM:
 										if (len(data_buffer) == 12):
-											RNS.log("Radio reporting PHYPRM")
+											self.lst = data_buffer[0] << 8 | data_buffer[1]
+											self.lsr = data_buffer[2] << 8 | data_buffer[3]
+											self.prs = data_buffer[4] << 8 | data_buffer[5]
+											self.prt = data_buffer[6] << 8 | data_buffer[7]
+											self.cst = data_buffer[8] << 8 | data_buffer[9]
+											self.dft = data_buffer[10] << 8 | data_buffer[11]
+											RNS.log(f"Radio reporting PHYPRM: " +
+													f"lst:{self.lst}, " +
+													f"lsr:{self.lsr}, " +
+													f"prs:{self.prs}, " +
+													f"prt:{self.prt}, " +
+													f"cst:{self.cst}, " +
+													f"dft:{self.dft}")
 										else:
 											RNS.log(f"Wrong number of bytes {len(data_buffer)} for phyprm")
 									case KISS.CMD_PROMISC:
