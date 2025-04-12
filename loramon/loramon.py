@@ -169,13 +169,16 @@ class RNode():
 		self.number_of_packets_received = 0
 		self.capture_start_time = time.time()
 
+		#flag for printing raw bytes from RNode
+		self.raw_data_enabled = False
+
 	def setCapturDuration(self, seconds):
 		#set the start time, first
 		self.capture_start_time = time.time()
 		#set seconds after setting the time, to eliminate race issues with the thread
 		self.duration_to_capture_for = seconds
 
-	def readLoop(self):
+	def packetReadLoop(self):
 		try:
 			in_frame = False
 			escape = False
@@ -185,8 +188,7 @@ class RNode():
 			last_read_ms = int(time.time()*1000)
 
 			while self.serial.is_open:
-				#if there is a time to capture specified and rnode is detected
-				if (self.duration_to_capture_for > 0):
+				if (self.duration_to_capture_for > 0): #handle case where a capture duration is specified
 					seconds_elapsed = int(time.time() - self.capture_start_time)
 					if(seconds_elapsed > self.duration_to_capture_for):
 						return (self.number_of_packets_received)
@@ -195,185 +197,187 @@ class RNode():
 					byte = ord(self.serial.read(1))
 					last_read_ms = int(time.time()*1000)
 
-					if (in_frame and byte == KISS.FEND and command == KISS.CMD_DATA):
-						in_frame = False
-						self.processIncoming(data_buffer)
-						data_buffer = b""
-						command_buffer = b""
-						self.number_of_packets_received += 1
-						if (self.number_of_packets_received > 255):
-							number_of_packets_received_exit_code = 255
+					if (in_frame == True):
+						if (self.raw_data_enabled == True): #logic to print raw frame data when in frame
+							if (byte == KISS.FEND):
+								# we have detected end of a frame
+								print(f"{byte:#0{4}x}", end="")
+								print("<--")
+							else:
+								# we are still capturing bytes while a frame was detected
+								print(f"{byte:#0{4}x} ", end="")
+
+						if (byte == KISS.FEND): #received FEND, which signals end of a frame
+							#first make sure we actually received a command
+							if (len(command_buffer) == 0): #double FEND
+								#detected a FEND FEND situation
+								#stay in frame
+								None
+							else: #we have a command, handle it
+								match command_buffer[0]:
+									case KISS.CMD_DATA:
+										self.processIncoming(data_buffer)
+										self.number_of_packets_received += 1
+										if (self.number_of_packets_received > 255):
+											number_of_packets_received_exit_code = 255
+										else:
+											number_of_packets_received_exit_code = self.number_of_packets_received
+									case KISS.CMD_ROM_READ:
+										self.eeprom = data_buffer
+									case KISS.CMD_FREQUENCY:
+										if (len(data_buffer) == 4):
+											self.r_frequency = data_buffer[0] << 24 | data_buffer[1] << 16 | data_buffer[2] << 8 | data_buffer[3]
+											RNS.log("Radio reporting frequency is "+str(self.r_frequency/1000000.0)+" MHz")
+											self.updateBitrate()
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for frequency")
+									case KISS.CMD_BANDWIDTH:
+										if (len(data_buffer) == 4):
+											self.r_bandwidth = data_buffer[0] << 24 | data_buffer[1] << 16 | data_buffer[2] << 8 | data_buffer[3]
+											RNS.log("Radio reporting bandwidth is "+str(self.r_bandwidth/1000.0)+" KHz")
+											self.updateBitrate()
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for bandwith")
+									case KISS.CMD_FW_VERSION:
+										if (len(data_buffer) == 2):
+											self.major_version = data_buffer[0]
+											self.minor_version = data_buffer[1]
+											self.updateVersion()
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for version")
+									case KISS.CMD_TXPOWER:
+										if (len(data_buffer) == 1):
+											self.r_txpower = data_buffer[0]
+											RNS.log("Radio reporting TX power is "+str(self.r_txpower)+" dBm")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for tx power")
+									case KISS.CMD_SF:
+										if (len(data_buffer) == 1):
+											self.r_sf = data_buffer[0]
+											RNS.log("Radio reporting spreading factor is "+str(self.r_sf))
+											self.updateBitrate()
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for spreading factor")
+									case KISS.CMD_CR:
+										if (len(data_buffer) == 1):
+											self.r_cr = data_buffer[0]
+											RNS.log("Radio reporting coding rate is "+str(self.r_cr))
+											self.updateBitrate()
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for coding rate")
+									case KISS.CMD_IMPLICIT:
+										if (len(data_buffer) == 1):
+											self.r_implicit_length = data_buffer[0]
+											if self.r_implicit_length != 0:
+												RNS.log("Radio in implicit header mode, listening for packets with a length of "+str(self.r_implicit_length)+" bytes")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for implicit header")
+									case KISS.CMD_RADIO_STATE:
+										if (len(data_buffer) == 1):
+											self.r_state = data_buffer[0]
+											RNS.log("Radio reporting radio state is "+str(self.r_state))
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for radio state")
+									case KISS.CMD_RADIO_LOCK:
+										if (len(data_buffer) == 1):
+											self.r_lock = data_buffer[0]
+											RNS.log("Radio reporting radio lock is "+str(self.r_lock))
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for radio lock")
+									case KISS.CMD_ERROR:
+										if (len(data_buffer) == 1):
+											if (data_buffer[0] == KISS.ERROR_INITRADIO):
+												RNS.log(str(self)+" hardware initialisation error (code "+RNS.hexrep(data_buffer[0])+")")
+											elif (data_buffer[0] == KISS.ERROR_INITRADIO):
+												RNS.log(str(self)+" hardware TX error (code "+RNS.hexrep(data_buffer[0])+")")
+											else:
+												RNS.log(str(self)+" hardware error (code "+RNS.hexrep(data_buffer[0])+")")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for error")
+									case KISS.CMD_DETECT:
+										if (len(data_buffer) == 1):
+											if data_buffer[0] == KISS.DETECT_RESP:
+												self.detected = True
+											else:
+												self.detected = False
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for detect")
+									case KISS.CMD_STAT_RSSI:
+										if (len(data_buffer) == 1):
+											self.r_stat_rssi = data_buffer[0] - self.rssi_offset
+											RNS.log("Radio reporting rssi is "+str(self.r_stat_rssi))
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for rssi")
+									case KISS.CMD_STAT_SNR:
+										if (len(data_buffer) == 1):
+											self.r_stat_snr = int.from_bytes(bytes([data_buffer[0]]), byteorder="big", signed=True) * 0.25
+											RNS.log("Radio reporting snr is "+str(self.r_stat_snr))
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for snr")
+									case KISS.CMD_STAT_BAT:
+										if (len(data_buffer) == 2):
+											RNS.log(f"Radio reporting battery state is {data_buffer[0]}, % {data_buffer[1]}")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for battery")
+									case KISS.CMD_STAT_CHTM:
+										if (len(data_buffer) == 11):
+											RNS.log("Radio reporting CHTM")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for chtm")
+									case KISS.CMD_STAT_PHYPRM:
+										if (len(data_buffer) == 12):
+											RNS.log("Radio reporting PHYPRM")
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for phyprm")
+									case KISS.CMD_PROMISC:
+										if (len(data_buffer) == 1):
+											RNS.log("Radio reporting promiscuous mode is " + str(data_buffer[0]))
+										else:
+											RNS.log(f"Wrong number of bytes {len(data_buffer)} for promisc")
+									case _: #any command not handled here
+										RNS.log(f"Received unhandled command {command_buffer[0]}")
+
+								# set all buffer to empty
+								in_frame = False
+								data_buffer = b""
+								command_buffer = b""
+						else: #still in frame, accumulate received bytes in data_buffer
+							if (len(command_buffer) == 0): #first byte after FEND is the command
+								command_buffer = bytes([byte])
+							#add the received byte to data_buffer but account for escape characters
+							else: #receive bytes after the command
+								if (byte == KISS.FESC):
+									escape = True
+								else:
+									if (escape):
+										if (byte == KISS.TFEND):
+											byte = KISS.FEND
+										elif (byte == KISS.TFESC):
+											byte = KISS.FESC
+										else:
+											RNS.log(f"Recieved bad escape code {byte}")
+										escape = False
+									data_buffer = data_buffer+bytes([byte])
+					else: #in_frame != True
+						if (byte == KISS.FEND):
+							#not in frame and received FEND.  start a new frame
+							in_frame = True
+							command = KISS.CMD_UNKNOWN
+							data_buffer = b""
+							command_buffer = b""
+							if (self.raw_data_enabled == True):
+								print() #print a new line, in case there were out of frame characters
+								print("-->", end="")
+								print(f"{byte:#0{4}x} ", end="")
 						else:
-							number_of_packets_received_exit_code = self.number_of_packets_received
-					elif (in_frame and byte == KISS.FEND and command == KISS.CMD_ROM_READ):
-						self.eeprom = data_buffer
-						in_frame = False
-						data_buffer = b""
-						command_buffer = b""
-					elif (byte == KISS.FEND):
-						in_frame = True
-						command = KISS.CMD_UNKNOWN
-						data_buffer = b""
-						command_buffer = b""
-					elif (in_frame and len(data_buffer) < 512):
-						if (len(data_buffer) == 0 and command == KISS.CMD_UNKNOWN):
-							command = byte
-						elif (command == KISS.CMD_DATA):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								data_buffer = data_buffer+bytes([byte])
-						elif (command == KISS.CMD_FREQUENCY):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 4):
-									self.r_frequency = command_buffer[0] << 24 | command_buffer[1] << 16 | command_buffer[2] << 8 | command_buffer[3]
-									RNS.log("Radio reporting frequency is "+str(self.r_frequency/1000000.0)+" MHz")
-									self.updateBitrate()
-						elif (command == KISS.CMD_BANDWIDTH):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 4):
-									self.r_bandwidth = command_buffer[0] << 24 | command_buffer[1] << 16 | command_buffer[2] << 8 | command_buffer[3]
-									RNS.log("Radio reporting bandwidth is "+str(self.r_bandwidth/1000.0)+" KHz")
-									self.updateBitrate()
-						elif (command == KISS.CMD_FW_VERSION):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 2):
-									self.major_version = command_buffer[0]
-									self.minor_version = command_buffer[1]
-									self.updateVersion()
-						elif (command == KISS.CMD_TXPOWER):
-							self.r_txpower = byte
-							RNS.log("Radio reporting TX power is "+str(self.r_txpower)+" dBm")
-						elif (command == KISS.CMD_SF):
-							self.r_sf = byte
-							RNS.log("Radio reporting spreading factor is "+str(self.r_sf))
-							self.updateBitrate()
-						elif (command == KISS.CMD_CR):
-							self.r_cr = byte
-							RNS.log("Radio reporting coding rate is "+str(self.r_cr))
-							self.updateBitrate()
-						elif (command == KISS.CMD_IMPLICIT):
-							self.r_implicit_length = byte
-							if self.r_implicit_length != 0:
-								RNS.log("Radio in implicit header mode, listening for packets with a length of "+str(self.r_implicit_length)+" bytes")
-						elif (command == KISS.CMD_RADIO_STATE):
-							self.r_state = byte
-						elif (command == KISS.CMD_RADIO_LOCK):
-							self.r_lock = byte
-						elif (command == KISS.CMD_ERROR):
-							if (byte == KISS.ERROR_INITRADIO):
-								RNS.log(str(self)+" hardware initialisation error (code "+RNS.hexrep(byte)+")")
-							elif (byte == KISS.ERROR_INITRADIO):
-								RNS.log(str(self)+" hardware TX error (code "+RNS.hexrep(byte)+")")
-							else:
-								RNS.log(str(self)+" hardware error (code "+RNS.hexrep(byte)+")")
-						elif (command == KISS.CMD_DETECT):
-							if byte == KISS.DETECT_RESP:
-								self.detected = True
-							else:
-								self.detected = False
-						elif (command == KISS.CMD_STAT_RSSI):
-							self.r_stat_rssi = byte - self.rssi_offset
-						elif (command == KISS.CMD_STAT_SNR):
-							self.r_stat_snr = int.from_bytes(bytes([byte]), byteorder="big", signed=True) * 0.25
-						elif (command == KISS.CMD_STAT_BAT):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 2):
-									None
-									#print(f"battery state {command_buffer[0]}, battery % {command_buffer[1]}")
-						elif (command == KISS.CMD_STAT_CHTM):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 11):
-									None
-									#print(f"CMD_STAT_CHTM")
-						elif (command == KISS.CMD_STAT_PHYPRM):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 12):
-									None
-									#print(f"CMD_STAT_PHYPRM")
-						elif (command == KISS.CMD_PROMISC):
-							if (byte == KISS.FESC):
-								escape = True
-							else:
-								if (escape):
-									if (byte == KISS.TFEND):
-										byte = KISS.FEND
-									if (byte == KISS.TFESC):
-										byte = KISS.FESC
-									escape = False
-								command_buffer = command_buffer+bytes([byte])
-								if (len(command_buffer) == 1):
-									RNS.log("Radio reporting promiscuous mode is " + str(command_buffer[0]))
-						else:
-							print(f"Received unhandled command {hex(command)}")
-					else:
-						#this means we are getting bytes out side of a KISS.FEND ... KISS.FEND bracket
-						#print(f"Unexpected byte {hex(byte)}")
-						None
+							#we are out of frame and received a non FEND byte!!!
+							#shouldn't happen
+							print(f"{byte:#0{4}x}", end="")
+							None
 				else:
 					time_since_last = int(time.time()*1000) - last_read_ms
-					if len(data_buffer) > 0 and time_since_last > self.timeout:
-						RNS.log(str(self)+" serial read timeout")
+					if in_frame == True and time_since_last > self.timeout:
+						RNS.log(str(self)+" serial read timeout while receiving frame")
 						data_buffer = b""
 						in_frame = False
 						command = KISS.CMD_UNKNOWN
@@ -500,7 +504,7 @@ def device_probe(rnode):
 	sleep(0.1)
 	if rnode.detected == True:
 		RNS.log("RNode connected")
-		RNS.log("Firmware version: "+rnode.version)
+		RNS.log("Firmware version: " + str(rnode.version))
 		return True
 	else:
 		raise IOError("Got invalid response while detecting device")
@@ -552,6 +556,7 @@ def main():
 		parser.add_argument("--implicit", action="store", metavar="length", type=int, default=None, help="Packet length in implicit header mode")
 		parser.add_argument("--duration", action="store", metavar="seconds", type=int, default=0,help="Duration of time to capture packets")
 		parser.add_argument("-Q", action="store_true", help="Quite mode, no logging")
+		parser.add_argument("-R", action="store_true", help="Raw frame mode")
 
 		parser.add_argument("port", nargs="?", default=None, help="Serial port where RNode is attached", type=str)
 		args = parser.parse_args()
@@ -604,12 +609,16 @@ def main():
 				exit(number_of_packets_received_exit_code)
 
 			rnode = RNode(rnode_serial)
+
+			if (args.R):
+				rnode.raw_data_enabled = True
+
 			rnode.callback = packet_captured
 			rnode.console_output = console_output
 			rnode.write_to_disk = write_to_disk
 			rnode.write_dir = write_dir
 
-			thread = threading.Thread(target=rnode.readLoop)
+			thread = threading.Thread(target=rnode.packetReadLoop)
 			thread.daemon = True
 			thread.start()
 
