@@ -180,6 +180,8 @@ class RNode():
 		self.cst = None  #CSMA Slot MS
 		self.dft = None  #DIFS MS
 
+		self.print_hex = None
+
 		#duration of time, in seconds, to capture
 		self.duration_to_capture_for = 0
 		#total number of packets captured
@@ -600,6 +602,7 @@ def main():
 		parser.add_argument("--duration", action="store", metavar="seconds", type=int, default=0,help="Duration of time to capture packets")
 		parser.add_argument("-Q", action="store_true", help="Quite mode, no logging")
 		parser.add_argument("-R", action="store_true", help="Raw frame mode")
+		parser.add_argument("-P", action="store_true", help="Set promiscuous mode")
 
 		parser.add_argument("port", nargs="?", default=None, help="Serial port where RNode is attached", type=str)
 		args = parser.parse_args()
@@ -717,8 +720,10 @@ def main():
 				rnode.print_hex = False
 
 			rnode.initRadio()
-			rnode.setPromiscuousMode(True)
-			sleep(0.5)
+
+			if args.P:
+				rnode.setPromiscuousMode(True)
+				sleep(0.5)
 
 			# set the duration here, after radio has been initialized
 			rnode.setCapturDuration(args.duration)
