@@ -723,7 +723,9 @@ def main():
 
 			if args.P:
 				rnode.setPromiscuousMode(True)
-				sleep(0.5)
+			else:
+				rnode.setPromiscuousMode(False)
+			sleep(0.5)
 
 			# set the duration here, after radio has been initialized
 			rnode.setCapturDuration(args.duration)
