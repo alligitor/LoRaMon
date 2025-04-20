@@ -25,6 +25,9 @@ class LoRaMonUIApp:
         self.battery = None
         self.packets_received = 0
 
+        #flag that indicates if the output should auto scroll to the bottom
+        self.auto_scroll_flag = False
+
         # flag to select original or scrollable list
         self.ORIGINAL_WIDGET = False
 
@@ -43,10 +46,6 @@ class LoRaMonUIApp:
 
         # Shared queue for sending messages
         self.message_queue = queue_from_radio
-
-        # Left-top: Menu
-        menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action), ("Menu 3", self.menu_action)]
-        menu_widgets = []
 
         self.caption_text_widgets = []
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio Freq: "), None))
@@ -71,6 +70,13 @@ class LoRaMonUIApp:
         self.packets_received_widget = urwid.AttrMap(urwid.Text("Packets: "), None)
         menu_widgets.append(self.packets_received_widget)
 
+        self.auto_scroll_widget = urwid.Button("AutoScroll: " + str(self.auto_scroll_flag))
+        urwid.connect_signal(self.auto_scroll_widget, 'click', self.toggleAutoScroll)
+        menu_widgets.append(self.auto_scroll_widget)
+
+        # Left-top: Menu
+        menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action), ("Menu 3", self.menu_action)]
+        menu_widgets = []
 
         for label, handler in menu_items:
             button = urwid.Button(label)
@@ -122,7 +128,8 @@ class LoRaMonUIApp:
         else:
             self.output_widget.append(urwid.Text(line))
             # move to the bottom
-            #self.output_widget.set_focus(len(self.output_widget) - 1)
+            if (self.auto_scroll_flag == True):
+                self.output_widget.set_focus(len(self.output_widget) - 1)
 
     def menu_action(self, button, label):
         self.append_output(f"You clicked: {label}")
@@ -132,6 +139,13 @@ class LoRaMonUIApp:
         thread = threading.Thread(target=self.background_task)
         thread.daemon = True
         thread.start()
+
+    def toggleAutoScroll(self, button):
+        if (self.auto_scroll_flag == True):
+            self.auto_scroll_flag = False
+        else:
+            self.auto_scroll_flag = True
+        self.auto_scroll_widget.set_label("AutoScroll: " + str(self.auto_scroll_flag))
 
     def background_task(self):
         time.sleep(.5)  # Simulate some background work
