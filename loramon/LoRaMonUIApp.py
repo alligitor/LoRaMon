@@ -44,6 +44,9 @@ class LoRaMonUIApp:
             self.listbox = urwid.ListBox(self.output_widget)
             self.output_box = urwid.LineBox(self.listbox, title="Log Output")
 
+        #list of widgets that get added to the left pane
+        menu_widgets = []
+
         # Shared queue for sending messages
         self.message_queue = queue_from_radio
 
@@ -62,7 +65,8 @@ class LoRaMonUIApp:
 
         for i in range(len(self.input_edit_widgets)):
             menu_widgets.append(self.caption_text_widgets[i])
-            menu_widgets.append(self.input_edit_widgets[i])
+            #don't added the edits, until they are implemented
+            #menu_widgets.append(self.input_edit_widgets[i])
 
         self.battery_text_widget = urwid.AttrMap(urwid.Text("Battery: "), None)
         menu_widgets.append(self.battery_text_widget)
@@ -76,7 +80,6 @@ class LoRaMonUIApp:
 
         # Left-top: Menu
         menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action), ("Menu 3", self.menu_action)]
-        menu_widgets = []
 
         for label, handler in menu_items:
             button = urwid.Button(label)
