@@ -18,6 +18,11 @@ from LoRaMonHelperClasses import RNSSerial
 from LoRaMonHelperClasses import KISS
 from LoRaMonHelperClasses import ROM
 
+#returned number of packets that were captured
+#the return value in Linux is only 8 bits. we need to cap it
+#make this a global for use, even if rnode isn't initialized
+number_of_packets_received_exit_code = 0
+
 
 class RNode():
     def __init__(self, serial_instance):
@@ -137,6 +142,8 @@ class RNode():
             self.loramon_ui_app.packet_received = self.number_of_packets_received
 
     def packetReadLoop(self):
+        global number_of_packets_received_exit_code
+
         try:
             in_frame = False
             escape = False
@@ -488,11 +495,6 @@ class RNode():
         if written != len(kiss_command):
             raise IOError("An IO error occurred while configuring promiscuous mode for "+self(str))
 
-#returned number of packets that were captured
-#the return value in Linux is only 8 bits. we need to cap it
-#make this a global for use, even if rnode isn't initialized
-number_of_packets_received_exit_code = 0
-
 def packet_captured(data, rnode_instance):
     if rnode_instance.console_output:
         if rnode_instance.print_hex:
@@ -553,9 +555,13 @@ def main():
             print("UI mode and timed capture are not compatible")
             exit(number_of_packets_received_exit_code)
 
+        if args.Q and args.U:
+            print("Quite mode and timed capture are not compatible")
+            exit(number_of_packets_received_exit_code)
 
         if args.port:
-            RNS.log("Opening serial port "+args.port+"...")
+            if not args.Q:
+                RNS.log("Opening serial port "+args.port+"...")
             rnode = None
             serial_device = None
             rnode_baudrate = 115200
@@ -589,9 +595,6 @@ def main():
 
         # create the RNode object and give it the lockable serial device
         rnode = RNode(rns_serial)
-
-        if args.Q:
-            RNS.log_enabled = False
 
         if args.console:
             console_output = True
@@ -658,8 +661,8 @@ def main():
         if not args.W and not args.console:
             RNS.log("Warning! No output destination specified! You won't see any captured packets.")
 
-
         #turn off all logging until we probe the RNode device
+        #we don't want leftover packets, data, etc. to spew out
         RNS.log_enabled = False
 
         #Get the background thread going that will read from radio and help detect it
@@ -679,11 +682,12 @@ def main():
             print("Serial port opened, but RNode did not respond.")
             rnode.thread_continue = False
         else:
-            #enable logging again, now that radio is detected
-            RNS.log_enabled = True
-
             #decide whether we are running on console, or URWID based UI
             if (args.U):
+                #enable logging again, now that radio is detected
+                #don't look at args.Q, it's not compatable with UI mode
+                RNS.log_enabled = True
+
                 #UI Mode
                 RNS.ui_msg_queue = queue.Queue()
                 loramon_ui_app = LoRaMonUIApp(RNS.ui_msg_queue)
@@ -698,10 +702,17 @@ def main():
                 None
             else:
                 #Console mode
+
+                if args.Q:
+                    RNS.log_enabled = False
+                else:
+                    RNS.log_enabled = True
+
                 #initialize the radio
                 rnode.initRadio()
 
                 # set the duration here, after radio has been initialized
+                # duration mode is only available in console mode
                 rnode.setCapturDuration(args.duration)
                 RNS.log(f"Capture Duration {rnode.duration_to_capture_for}")
 
