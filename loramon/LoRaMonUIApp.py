@@ -50,36 +50,44 @@ class LoRaMonUIApp:
         # Shared queue for sending messages
         self.message_queue = queue_from_radio
 
+        #these are caption widgests, showing the paramters that comes from the radio
         self.caption_text_widgets = []
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio Freq: "), None))
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio   BW: "), None))
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio   SF: "), None))
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio   CR: "), None))
 
-
+        #these are edit boxes, allowing the user to enter a value to be set in the radio
         self.input_edit_widgets = []
         self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"Freq: ", ""), None))
         self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  BW: ", ""), None))
         self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  SF: ", ""), None))
         self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  CR: ", ""), None))
 
+        #add the captions and edit widges to the left menu
         for i in range(len(self.input_edit_widgets)):
             menu_widgets.append(self.caption_text_widgets[i])
             #don't added the edits, until they are implemented
             #menu_widgets.append(self.input_edit_widgets[i])
 
+        #widget for showing battery status
         self.battery_text_widget = urwid.AttrMap(urwid.Text("Battery: "), None)
         menu_widgets.append(self.battery_text_widget)
 
+        #widget for showing number of packets that have been captured
         self.packets_received_widget = urwid.AttrMap(urwid.Text("Packets: "), None)
         menu_widgets.append(self.packets_received_widget)
 
+        #widget for turn auto scroll on / off
         self.auto_scroll_widget = urwid.Button("AutoScroll: " + str(self.auto_scroll_flag))
         urwid.connect_signal(self.auto_scroll_widget, 'click', self.toggleAutoScroll)
         menu_widgets.append(self.auto_scroll_widget)
 
         # Left-top: Menu
-        menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action), ("Menu 3", self.menu_action)]
+        # these are 3 example buttons to put in. i'm using them as a template for other things
+        # the first item, kicks off a thread to do background activity
+        # second one is just a button
+        menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action)]
 
         for label, handler in menu_items:
             button = urwid.Button(label)
@@ -90,6 +98,9 @@ class LoRaMonUIApp:
         menu_box = urwid.LineBox(menu_listbox, title="Menu")
 
         # Left-bottom: Input
+        # this area is meant to be a place for user to type commands
+        # example quit/exit, bytes to send to the radio, etc.
+        # nothing is implemented yet though
         self.input_edit = SubmitEdit(self.submit_input, caption="> ")
         submit_button = urwid.Button("Submit")
         urwid.connect_signal(submit_button, 'click', lambda button: self.submit_input())
