@@ -10,6 +10,7 @@ usage: loramon [-h] [-C] [-W directory] [--freq Hz] [--bw Hz] [--txp dBm]
                [--duration seconds] [-Q]
                [-R]
                [-P]
+               [-U]
                [port]
 
 LoRa packet sniffer for RNode hardware.
@@ -30,6 +31,7 @@ optional arguments:
   -Q             Quite mode. Don't log any messages after start up
   -R             Print out raw bytes of the frame
   -P             Set promiscuous mode
+  -U             Use a text based UI
 ```
 
 ## Installation

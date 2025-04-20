@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="loramon",
-    version="0.9.7",
+    version="0.9.8",
     author="Mark Qvist",
     author_email="mark@unsigned.io",
     description="LoRa packet sniffer for RNode hardware",
@@ -21,6 +21,6 @@ setuptools.setup(
     entry_points= {
         'console_scripts': ['loramon=loramon:main']
     },
-    install_requires=['pyserial'],
+    install_requires=['pyserial', 'urwid'],
     python_requires='>=3.6',
 )
