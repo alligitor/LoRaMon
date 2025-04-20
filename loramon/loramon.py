@@ -51,9 +51,9 @@ class RNode():
         self.detected = None
 
         self.eeprom = None
-        self.major_version = None
-        self.minor_version = None
-        self.version = None
+        self.fw_major_version = None
+        self.fw_minor_version = None
+        self.fw_version = None
 
         self.provisioned = None
         self.product = None
@@ -65,17 +65,6 @@ class RNode():
         self.signature = None
         self.signature_valid = False
         self.vendor = None
-
-        self.min_freq = None
-        self.max_freq = None
-        self.max_output = None
-
-        self.configured = None
-        self.conf_sf = None
-        self.conf_cr = None
-        self.conf_txpower = None
-        self.conf_frequency = None
-        self.conf_bandwidth = None
 
         #channel parameters
         self.ats = None  #Air time, short term
@@ -127,7 +116,7 @@ class RNode():
         while True:
             if self.detected == True:
                 RNS.log("RNode connected")
-                RNS.log("Firmware version: " + str(self.version))
+                RNS.log("Firmware version: " + str(self.fw_version))
                 device_detected = True
                 break
             else:
@@ -214,8 +203,8 @@ class RNode():
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for bandwith")
                                     case KISS.CMD_FW_VERSION:
                                         if (len(data_buffer) == 2):
-                                            self.major_version = data_buffer[0]
-                                            self.minor_version = data_buffer[1]
+                                            self.fw_major_version = data_buffer[0]
+                                            self.fw_minor_version = data_buffer[1]
                                             self.updateVersion()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for version")
@@ -404,10 +393,10 @@ class RNode():
             self.bitrate = 0
 
     def updateVersion(self):
-        minstr = str(self.minor_version)
+        minstr = str(self.fw_minor_version)
         if len(minstr) == 1:
             minstr = "0"+minstr
-        self.version = str(self.major_version)+"."+minstr
+        self.fw_version = str(self.fw_major_version)+"."+minstr
 
     def detectRequest(self):
         kiss_command = bytes([KISS.FEND, KISS.CMD_DETECT, KISS.DETECT_REQ, KISS.FEND, KISS.CMD_FW_VERSION, 0x00, KISS.FEND])
