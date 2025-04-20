@@ -366,13 +366,12 @@ class RNode():
                             data_buffer = b""
                             command_buffer = b""
                             if (self.raw_data_enabled == True):
-                                print() #print a new line, in case there were out of frame characters
-                                print("-->", end="")
-                                print(f"{byte:#0{4}x} ", end="")
+                                packet_string += "-->"
+                                packet_string += f"{byte:#0{4}x} "
                         else:
                             #we are out of frame and received a non FEND byte!!!
                             #shouldn't happen
-                            print(f"{byte:#0{4}x}", end="")
+                            packet_string += f"{byte:#0{4}x}"
                             None
                 else:
                     time_since_last = int(time.time()*1000) - last_read_ms
