@@ -24,6 +24,8 @@ class LoRaMonUIApp:
         self.coding_rate = None
         self.battery = None
         self.packets_received = 0
+        self.promiscuous = None
+        self.radio_detected = None
 
         #flag that indicates if the output should auto scroll to the bottom
         self.auto_scroll_flag = True

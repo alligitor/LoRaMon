@@ -40,6 +40,7 @@ class RNode():
         self.r_stat_snr  = 0
         self.r_battery   = None
         self.r_cr        = None
+        self.r_promiscuous = None
         self.r_implicit_length = 0
 
         self.rssi_offset = 157
@@ -140,6 +141,8 @@ class RNode():
             self.loramon_ui_app.coding_rate = self.r_cr
             self.loramon_ui_app.battery = self.r_battery
             self.loramon_ui_app.packet_received = self.number_of_packets_received
+            self.loramon_ui_app.promiscuous = self.r_promiscuous
+            self.loramon_ui_app.radio_detected = self.detected
 
     def packetReadLoop(self):
         global number_of_packets_received_exit_code
@@ -247,12 +250,14 @@ class RNode():
                                     case KISS.CMD_RADIO_STATE:
                                         if (len(data_buffer) == 1):
                                             self.r_state = data_buffer[0]
+                                            self.updateIUApp()
                                             RNS.log("Radio reporting radio state is "+str(self.r_state))
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for radio state")
                                     case KISS.CMD_RADIO_LOCK:
                                         if (len(data_buffer) == 1):
                                             self.r_lock = data_buffer[0]
+                                            self.updateIUApp()
                                             RNS.log("Radio reporting radio lock is "+str(self.r_lock))
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for radio lock")
@@ -272,18 +277,21 @@ class RNode():
                                                 self.detected = True
                                             else:
                                                 self.detected = False
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for detect")
                                     case KISS.CMD_STAT_RSSI:
                                         if (len(data_buffer) == 1):
                                             self.r_stat_rssi = data_buffer[0] - self.rssi_offset
                                             RNS.log("Radio reporting rssi is "+str(self.r_stat_rssi))
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for rssi")
                                     case KISS.CMD_STAT_SNR:
                                         if (len(data_buffer) == 1):
                                             self.r_stat_snr = int.from_bytes(bytes([data_buffer[0]]), byteorder="big", signed=True) * 0.25
                                             RNS.log("Radio reporting snr is "+str(self.r_stat_snr))
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for snr")
                                     case KISS.CMD_STAT_BAT:
@@ -310,6 +318,7 @@ class RNode():
                                                     f"crs:{self.crs}, " +
                                                     f"nfl:{self.nfl}, " +
                                                     f"ntf:{self.ntf}")
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for chtm")
                                     case KISS.CMD_STAT_PHYPRM:
@@ -327,11 +336,17 @@ class RNode():
                                                     f"prt:{self.prt}, " +
                                                     f"cst:{self.cst}, " +
                                                     f"dft:{self.dft}")
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for phyprm")
                                     case KISS.CMD_PROMISC:
                                         if (len(data_buffer) == 1):
                                             RNS.log("Radio reporting promiscuous mode is " + str(data_buffer[0]))
+                                            if str(data_buffer[0]) == 0:
+                                                self.r_promiscuous = False
+                                            else:
+                                                self.r_promiscuous = True
+                                            self.updateIUApp()
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for promisc")
                                     case _: #any command not handled here
