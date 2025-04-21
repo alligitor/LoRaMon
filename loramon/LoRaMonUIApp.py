@@ -26,7 +26,7 @@ class LoRaMonUIApp:
         self.packets_received = 0
 
         #flag that indicates if the output should auto scroll to the bottom
-        self.auto_scroll_flag = False
+        self.auto_scroll_flag = True
 
         # flag to select original or scrollable list
         self.ORIGINAL_WIDGET = False
@@ -42,7 +42,7 @@ class LoRaMonUIApp:
         else: #scrollable
             self.output_widget = urwid.SimpleListWalker([])
             self.listbox = urwid.ListBox(self.output_widget)
-            self.output_box = urwid.LineBox(self.listbox, title="Log Output")
+            self.output_box = urwid.LineBox(self.listbox, title="Output - Hit Q to Quit")
 
         #list of widgets that get added to the left pane
         menu_widgets = []
@@ -95,7 +95,7 @@ class LoRaMonUIApp:
             menu_widgets.append(urwid.AttrMap(button, None, focus_map='reversed'))
 
         menu_listbox = urwid.ListBox(urwid.SimpleFocusListWalker(menu_widgets))
-        menu_box = urwid.LineBox(menu_listbox, title="Menu")
+        menu_box = urwid.LineBox(menu_listbox, title="Controls")
 
         # Left-bottom: Input
         # this area is meant to be a place for user to type commands
