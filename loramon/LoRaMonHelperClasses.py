@@ -35,11 +35,11 @@ class RNSSerial():
 
 class RNS():
     log_enabled = True
-    ui_msg_queue = None
+    queue_to_ui = None
 
     def __init__ (self):
         RNS.log_enabled = True
-        RNS.ui_msg_queue = None
+        RNS.queue_to_ui = None
 
     @staticmethod
     def log(msg):
@@ -47,10 +47,14 @@ class RNS():
             logtimefmt   = "%Y-%m-%d %H:%M:%S"
             timestamp = time.time()
             logstring = "["+time.strftime(logtimefmt)+"] "+msg
-            if RNS.ui_msg_queue == None:
+            if RNS.queue_to_ui == None:
                 print(logstring)
             else:
-                RNS.ui_msg_queue.put(logstring)
+                msg_to_ui = {
+                    "type": "FromRadio",
+                    "value": logstring
+                    }
+                RNS.queue_to_ui.put(msg_to_ui)
 
     @staticmethod
     def hexrep(data, delimit=True):

@@ -1,56 +1,45 @@
 import urwid
 import queue
+import time
+import threading
 
 class SubmitEdit(urwid.Edit):
     """Custom Edit widget that submits on Enter key."""
-    def __init__(self, on_submit_callback, *args, **kwargs):
+    def __init__(self, parentApp, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.on_submit_callback = on_submit_callback
+        self.parentApp = parentApp
+        self.name = name
 
     def keypress(self, size, key):
         if key == 'enter':
-            self.on_submit_callback()
+            self.submitHandler(self.parentApp)
             return None
         return super().keypress(size, key)
 
+    def submitHandler(self, parentApp):
+        parentApp.appendToOutputWidget(f"Widget {self.name} received {self.edit_text.strip()}")
+        None
 
 class LoRaMonUIApp:
-    def __init__(self, queue_from_radio):
-
-        #setup the Radio specific variables
-        self.frequency = None
-        self.bandwidth = None
-        self.spread_factor = None
-        self.coding_rate = None
-        self.battery = None
-        self.packets_received = 0
-        self.promiscuous = None
-        self.radio_detected = None
+    def __init__(self, queue_from_radio, queue_to_radio):
 
         #flag that indicates if the output should auto scroll to the bottom
         self.auto_scroll_flag = True
 
-        # flag to select original or scrollable list
-        self.ORIGINAL_WIDGET = False
-
         # Right pane output list
         self.output_lines = []
-        if self.ORIGINAL_WIDGET: #original code
-            self.output_widget = urwid.Text("", align="left")
-            self.output_box = urwid.LineBox(
-                urwid.Filler(self.output_widget, valign='top'),
-                title="Output"
-            )
-        else: #scrollable
-            self.output_widget = urwid.SimpleListWalker([])
-            self.listbox = urwid.ListBox(self.output_widget)
-            self.output_box = urwid.LineBox(self.listbox, title="Output - Hit Q to Quit")
+        #scrollable
+        self.output_widget = urwid.SimpleListWalker([])
+        self.listbox = urwid.ListBox(self.output_widget)
+        self.output_box = urwid.LineBox(self.listbox, title="Output - Hit Q to Quit")
 
         #list of widgets that get added to the left pane
         menu_widgets = []
 
-        # Shared queue for sending messages
-        self.message_queue = queue_from_radio
+        # Shared queue for receiving updates from the radio
+        self.queue_from_radio = queue_from_radio
+        # Shared queue for sending messages to radio
+        self.queue_to_radio = queue_to_radio
 
         #these are caption widgests, showing the paramters that comes from the radio
         self.caption_text_widgets = []
@@ -61,16 +50,17 @@ class LoRaMonUIApp:
 
         #these are edit boxes, allowing the user to enter a value to be set in the radio
         self.input_edit_widgets = []
-        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"Freq: ", ""), None))
-        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  BW: ", ""), None))
-        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  SF: ", ""), None))
-        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self.submit_input,"  CR: ", ""), None))
+        #                                            Widget    UI App   Name       Caption   initial val
+        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self, "frequency"    , "Freq: ", ""), None))
+        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self, "bandwidth"    , "  BW: ", ""), None))
+        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self, "spread_factor", "  SF: ", ""), None))
+        self.input_edit_widgets.append(urwid.AttrMap(SubmitEdit(self, "coding_rate"  , "  CR: ", ""), None))
 
         #add the captions and edit widges to the left menu
         for i in range(len(self.input_edit_widgets)):
             menu_widgets.append(self.caption_text_widgets[i])
             #don't added the edits, until they are implemented
-            #menu_widgets.append(self.input_edit_widgets[i])
+            menu_widgets.append(self.input_edit_widgets[i])
 
         #widget for showing battery status
         self.battery_text_widget = urwid.AttrMap(urwid.Text("Battery: "), None)
@@ -86,7 +76,7 @@ class LoRaMonUIApp:
         menu_widgets.append(self.auto_scroll_widget)
 
         # Left-top: Menu
-        # these are 3 example buttons to put in. i'm using them as a template for other things
+        # these are 2 example buttons to put in. i'm using them as a template for other things
         # the first item, kicks off a thread to do background activity
         # second one is just a button
         menu_items = [("Menu 1", self.start_thread), ("Menu 2", self.menu_action)]
@@ -103,13 +93,14 @@ class LoRaMonUIApp:
         # this area is meant to be a place for user to type commands
         # example quit/exit, bytes to send to the radio, etc.
         # nothing is implemented yet though
-        self.input_edit = SubmitEdit(self.submit_input, caption="> ")
-        submit_button = urwid.Button("Submit")
-        urwid.connect_signal(submit_button, 'click', lambda button: self.submit_input())
+        self.user_command_widget = SubmitEdit(self, "user_command", caption="Cmd: ")
+
+        quit_button = urwid.Button("Quit")
+        urwid.connect_signal(quit_button, 'click', lambda button: self.quitApp())
 
         input_widgets = urwid.Pile([
-            urwid.AttrMap(self.input_edit, None),
-            urwid.AttrMap(submit_button, None, focus_map='reversed')
+            urwid.AttrMap(self.user_command_widget, None),
+            urwid.AttrMap(quit_button, None, focus_map='reversed')
         ])
         input_box = urwid.LineBox(input_widgets, title="User Input")
 
@@ -133,28 +124,18 @@ class LoRaMonUIApp:
         else:
             self.view = columns
 
-        self.loop = urwid.MainLoop(self.view, unhandled_input=self.handle_input)
+        self.loop = urwid.MainLoop(self.view, unhandled_input=self.unhandledInputHandler)
 
-        self.loop.set_alarm_in(.1, self.set_in_alarm_handler)
+        self.loop.set_alarm_in(.1, self.alarmHandler)
 
-    def append_output(self, line):
-        if self.ORIGINAL_WIDGET:
-            self.output_lines.append(line)
-            self.output_widget.set_text("\n".join(self.output_lines))
-        else:
-            self.output_widget.append(urwid.Text(line))
-            # move to the bottom
-            if (self.auto_scroll_flag == True):
-                self.output_widget.set_focus(len(self.output_widget) - 1)
+    def appendToOutputWidget(self, line):
+        self.output_widget.append(urwid.Text(line))
+        # move to the bottom
+        if (self.auto_scroll_flag == True):
+            self.output_widget.set_focus(len(self.output_widget) - 1)
 
     def menu_action(self, button, label):
-        self.append_output(f"You clicked: {label}")
-
-    def start_thread(self, button, label):
-        self.append_output("Menu 1: Starting background task...")
-        thread = threading.Thread(target=self.background_task)
-        thread.daemon = True
-        thread.start()
+        self.appendToOutputWidget(f"You clicked: {label}")
 
     def toggleAutoScroll(self, button):
         if (self.auto_scroll_flag == True):
@@ -163,45 +144,56 @@ class LoRaMonUIApp:
             self.auto_scroll_flag = True
         self.auto_scroll_widget.set_label("AutoScroll: " + str(self.auto_scroll_flag))
 
-    def background_task(self):
-        time.sleep(.5)  # Simulate some background work
-        #print("Background_task calling set_alarm_in")
-        #self.loop.set_alarm_in(0, self.set_in_alarm_handler)
-        msg = "<--->"
-        #print(f"[Sender] Sending: {msg}\n")
-        self.message_queue.put(msg)
+    def alarmHandler(self, loop, data):
+        #print("\nalarmHandler running")
+        # read up to 10 messages at a time
+        num_messages = 10
 
-    def set_in_alarm_handler(self, loop, data):
-        #print("\nset_in_alarm_handler running")
-        if not self.message_queue.empty():
-            msg = self.message_queue.get()
-            #print(f"[Receiver] Got message: {msg}")
-            self.append_output(msg)
+        while not self.queue_from_radio.empty() and num_messages > 0:
+            num_messages -= 1
 
-        #debug message, printing radio frequency
-        #self.append_output(str(self.caption_text_widgets[0].original_widget.text))
-        
+            msg = self.queue_from_radio.get()
+            match msg['type']:
+                case "FromRadio":
+                    self.appendToOutputWidget(msg["value"])
+                case "r_frequency":
+                    self.caption_text_widgets[0].original_widget.set_text("Radio Freq: " + str(msg["value"]))
+                case "r_bandwidth":
+                    self.caption_text_widgets[1].original_widget.set_text("Radio   BW: " + str(msg["value"]))
+                case "r_spread_factor":
+                    self.caption_text_widgets[2].original_widget.set_text("Radio   SF: " + str(msg["value"]))
+                case "r_coding_rate":
+                    self.caption_text_widgets[3].original_widget.set_text("Radio   CR: " + str(msg["value"]))
+                case "r_battery":
+                    self.battery_text_widget.original_widget.set_text    ("Battery: " + str(msg["value"]))
+                case "r_captured_packets":
+                    self.packets_received_widget.original_widget.set_text("Packets: " + str(msg["value"]))
+                case _:
+                    None
 
-        #update radio parameters
-        self.caption_text_widgets[0].original_widget.set_text("Radio Freq: " + str(self.frequency))
-        self.caption_text_widgets[1].original_widget.set_text("Radio   BW: " + str(self.bandwidth))
-        self.caption_text_widgets[2].original_widget.set_text("Radio   SF: " + str(self.spread_factor))
-        self.caption_text_widgets[3].original_widget.set_text("Radio   CR: " + str(self.coding_rate))
-        self.battery_text_widget.original_widget.set_text    ("Battery: " + str(self.battery))
-        self.packets_received_widget.original_widget.set_text    ("Packets: " + str(self.packet_received))
 
-        self.loop.set_alarm_in(.1, self.set_in_alarm_handler)
+        self.loop.set_alarm_in(.1, self.alarmHandler)
 
-    def submit_input(self):
-        user_text = self.input_edit.edit_text.strip()
-        if user_text:
-            self.append_output(f"You entered: {user_text}")
-            self.input_edit.set_edit_text("")  # Clear input
+    def quitApp(self):
+        raise urwid.ExitMainLoop()
 
-    def handle_input(self, key):
-        #print("\n\nhandle_input")
+    def unhandledInputHandler(self, key):
+        #print("\n\nunhandledInputHandler")
         if key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
 
     def run(self):
         self.loop.run()
+
+    # these two functions were for starting a new thread to do some background work
+    # after menu 1 was hit.  Not sure if they are needed but keeping them here in case
+    def start_thread(self, button, label):
+        self.appendToOutputWidget("Menu 1: Starting background task...")
+        thread = threading.Thread(target=self.background_task)
+        thread.daemon = True
+        thread.start()
+
+    def background_task(self):
+        time.sleep(.5)  # Simulate some background work
+        self.appendToOutputWidget("Menu 1: background_task finished")
+
