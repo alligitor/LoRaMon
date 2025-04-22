@@ -177,6 +177,10 @@ class LoRaMonUIApp:
                     #only support coding rages 5 .. 8
                     if valueInt >= 5 and valueInt <= 8:
                         self.sendParameterToRadio(widgetName, valueInt)
+            case "user_command":
+                #handle the widget that handles generic commands
+                #right now, nothing is implemented, just print a message to show what was received.
+                self.appendToOutputWidget(f"Widget {widgetName} received {value}")
             case _:
                 None
 
