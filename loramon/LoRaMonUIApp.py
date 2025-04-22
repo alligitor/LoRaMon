@@ -25,6 +25,9 @@ class LoRaMonUIApp:
         #flag that indicates if the output should auto scroll to the bottom
         self.auto_scroll_flag = True
 
+        #flag that indicates if the output should auto scroll to the bottom
+        self.print_raw_data_flag = False
+
         # Right pane output list
         self.output_lines = []
         #scrollable
@@ -73,6 +76,11 @@ class LoRaMonUIApp:
         self.auto_scroll_widget = urwid.Button("AutoScroll: " + str(self.auto_scroll_flag))
         urwid.connect_signal(self.auto_scroll_widget, 'click', self.toggleAutoScroll)
         menu_widgets.append(self.auto_scroll_widget)
+
+        #widget for turn auto scroll on / off
+        self.print_raw_data_widget = urwid.Button("Print Raw Data: " + str(self.print_raw_data_flag))
+        urwid.connect_signal(self.print_raw_data_widget, 'click', self.togglePrintRawData)
+        menu_widgets.append(self.print_raw_data_widget)
 
         # Left-top: Menu
         # these are 2 example buttons to put in. i'm using them as a template for other things
@@ -188,6 +196,15 @@ class LoRaMonUIApp:
             self.auto_scroll_flag = True
         self.auto_scroll_widget.set_label("AutoScroll: " + str(self.auto_scroll_flag))
 
+    def togglePrintRawData(self, button):
+        if (self.print_raw_data_flag == True):
+            self.print_raw_data_flag = False
+        else:
+            self.print_raw_data_flag = True
+        self.print_raw_data_widget.set_label("Print Raw Data: " + str(self.print_raw_data_flag))
+        #tell the radio the status of the button
+        self.sendParameterToRadio("print_raw_data", self.print_raw_data_flag)
+
     #this routine is called periodicaly to service incoming events for the UI
     #currently, there is a message queue from the radio thread
     #that send messages to be shown
@@ -201,7 +218,7 @@ class LoRaMonUIApp:
 
             msg = self.queue_from_radio.get()
             match msg['type']:
-                case "FromRadio":
+                case "LogMessageFromRadio":
                     self.appendToOutputWidget(msg["value"])
                 case "r_frequency":
                     self.caption_text_widgets[0].original_widget.set_text("Radio Freq: " + str(msg["value"]))
@@ -215,6 +232,9 @@ class LoRaMonUIApp:
                     self.battery_text_widget.original_widget.set_text    ("Battery: " + str(msg["value"]))
                 case "r_captured_packets":
                     self.packets_received_widget.original_widget.set_text("Packets: " + str(msg["value"]))
+                case "print_raw_data":
+                    self.print_raw_data_flag = msg["value"]
+                    self.print_raw_data_widget.set_label("Print Raw Data: " + str(self.print_raw_data_flag))
                 case _:
                     None
         #set the alarm again, so it calls the routing again

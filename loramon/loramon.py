@@ -98,7 +98,7 @@ class RNode():
         self.capture_start_time = time.time()
 
         #flag for printing raw bytes from RNode
-        self.raw_data_enabled = False
+        self.print_raw_data_enabled = False
 
         #flag for stopping the thread
         self.thread_continue = None
@@ -165,6 +165,8 @@ class RNode():
                         #print(f"UI is requesting coding_rate to change to {msg['value']}")
                         self.cr = msg['value']
                         self.setCodingRate()
+                    case "print_raw_data":
+                        self.setPrintRawDataBytes(msg['value'])
                     case _:
                         None
 
@@ -195,7 +197,7 @@ class RNode():
                     last_read_ms = int(time.time()*1000)
 
                     if (in_frame == True):
-                        if (self.raw_data_enabled == True): #logic to print raw frame data when in frame
+                        if (self.print_raw_data_enabled == True): #logic to print raw frame data when in frame
                             if (byte == KISS.FEND):
                                 # we have detected end of a frame
                                 packet_string += str(f"{byte:#0{4}x}")
@@ -408,7 +410,7 @@ class RNode():
                             command = KISS.CMD_UNKNOWN
                             data_buffer = b""
                             command_buffer = b""
-                            if (self.raw_data_enabled == True):
+                            if (self.print_raw_data_enabled == True):
                                 packet_string += "-->"
                                 packet_string += f"{byte:#0{4}x} "
                         else:
@@ -536,6 +538,16 @@ class RNode():
         written = self.rns_serial.Write(kiss_command)
         if written != len(kiss_command):
             raise IOError("An IO error occurred while configuring promiscuous mode for "+self(str))
+
+    def setPrintRawDataBytes(self, state):
+        if state == True:
+            self.print_raw_data_enabled = True
+            # for debugging
+            # RNS.log("setPrintRawDataBytes Received True")
+        else:
+            self.print_raw_data_enabled = False
+            # for debugging
+            # RNS.log("setPrintRawDataBytes Received False")
 
 def packet_captured(data, rnode_instance):
     if rnode_instance.console_output:
@@ -698,7 +710,7 @@ def main():
             rnode.promiscuous = False
 
         if (args.R):
-            rnode.raw_data_enabled = True
+            rnode.setPrintRawDataBytes(True)
 
         if not args.W and not args.console:
             RNS.log("Warning! No output destination specified! You won't see any captured packets.")
@@ -740,6 +752,9 @@ def main():
 
                 #initialize the radio
                 rnode.initRadio()
+
+                #set the setting for print raw data
+                rnode.updateIUApp("print_raw_data", args.R)
 
                 loramon_ui_app.run()
                 rnode.thread_continue = False

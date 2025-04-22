@@ -51,7 +51,7 @@ class RNS():
                 print(logstring)
             else:
                 msg_to_ui = {
-                    "type": "FromRadio",
+                    "type": "LogMessageFromRadio",
                     "value": logstring
                     }
                 RNS.queue_to_ui.put(msg_to_ui)
