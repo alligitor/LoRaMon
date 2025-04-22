@@ -17,8 +17,7 @@ class SubmitEdit(urwid.Edit):
         return super().keypress(size, key)
 
     def submitHandler(self, parentApp):
-        parentApp.appendToOutputWidget(f"Widget {self.name} received {self.edit_text.strip()}")
-        None
+        parentApp.widgetChangeHandler(self.name, self.edit_text.strip())
 
 class LoRaMonUIApp:
     def __init__(self, queue_from_radio, queue_to_radio):
@@ -126,7 +125,52 @@ class LoRaMonUIApp:
 
         self.loop = urwid.MainLoop(self.view, unhandled_input=self.unhandledInputHandler)
 
-        self.loop.set_alarm_in(.1, self.alarmHandler)
+        self.loop.set_alarm_in(.1, self.radioMessageHandler)
+
+    def sendParameterToRadio(self, type, value):
+        if (self.queue_to_radio != None):
+            msg = {
+                "type": type,
+                "value": value
+                }
+            self.queue_to_radio.put(msg)
+                
+    def widgetChangeHandler(self, widgetName, value):
+        def to_integer(s):
+            try:
+                return int(s)
+            except ValueError:
+                return None
+
+        #most values are integers, convert to int here
+        valueInt = to_integer(value)
+
+        match(widgetName):
+            case "frequency":
+                #self.appendToOutputWidget(f"Widget {widgetName} received {value}")
+                if valueInt != None:
+                    #we should do a check here for valid freq ranges..
+                    self.sendParameterToRadio(widgetName, valueInt)
+            case "bandwidth":
+                #self.appendToOutputWidget(f"Widget {widgetName} received {value}")
+                if valueInt != None:
+                    #only support 125k and 250K values
+                    if valueInt == 125000 or valueInt == 250000:
+                        self.sendParameterToRadio(widgetName, valueInt)
+            case "spread_factor":
+                #self.appendToOutputWidget(f"Widget {widgetName} received {value}")
+                if valueInt != None:
+                    #support spread factors 7 .. 12
+                    if valueInt >= 7 and valueInt <= 12:
+                        self.sendParameterToRadio(widgetName, valueInt)
+            case "coding_rate":
+                #self.appendToOutputWidget(f"Widget {widgetName} received {value}")
+                if valueInt != None:
+                    #only support coding rages 5 .. 8
+                    if valueInt >= 5 and valueInt <= 8:
+                        self.sendParameterToRadio(widgetName, valueInt)
+            case _:
+                None
 
     def appendToOutputWidget(self, line):
         self.output_widget.append(urwid.Text(line))
@@ -144,8 +188,11 @@ class LoRaMonUIApp:
             self.auto_scroll_flag = True
         self.auto_scroll_widget.set_label("AutoScroll: " + str(self.auto_scroll_flag))
 
-    def alarmHandler(self, loop, data):
-        #print("\nalarmHandler running")
+    #this routine is called periodicaly to service incoming events for the UI
+    #currently, there is a message queue from the radio thread
+    #that send messages to be shown
+    def radioMessageHandler(self, loop, data):
+        #print("\nradioMessageHandler running")
         # read up to 10 messages at a time
         num_messages = 10
 
@@ -170,9 +217,8 @@ class LoRaMonUIApp:
                     self.packets_received_widget.original_widget.set_text("Packets: " + str(msg["value"]))
                 case _:
                     None
-
-
-        self.loop.set_alarm_in(.1, self.alarmHandler)
+        #set the alarm again, so it calls the routing again
+        self.loop.set_alarm_in(.1, self.radioMessageHandler)
 
     def quitApp(self):
         raise urwid.ExitMainLoop()

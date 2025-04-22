@@ -147,20 +147,26 @@ class RNode():
     def readFromUIApp(self):
         if self.queue_from_ui:
             if not self.queue_from_ui.empty():
-                msg = self.queue_from_radio.get()
+                msg = self.queue_from_ui.get()
                 match msg['type']:
                     case "frequency":
-                        print(f"UI is requesting frequency to change to {msg['value']}")
-                        None
+                        #print(f"UI is requesting frequency to change to {msg['value']}")
+                        self.frequency = msg['value']
+                        self.setFrequency()
                     case "bandwidth":
-                        None
+                        #print(f"UI is requesting bandwidth to change to {msg['value']}")
+                        self.bandwidth = msg['value']
+                        self.setBandwidth()
                     case "spread_factor":
-                        None
+                        #print(f"UI is requesting spread_factor to change to {msg['value']}")
+                        self.sf = msg['value']
+                        self.setSpreadingFactor()
                     case "coding_rate":
-                        None
+                        #print(f"UI is requesting coding_rate to change to {msg['value']}")
+                        self.cr = msg['value']
+                        self.setCodingRate()
                     case _:
                         None
-
 
     def packetReadLoop(self):
         global number_of_packets_received_exit_code
@@ -215,6 +221,7 @@ class RNode():
                                             number_of_packets_received_exit_code = 255
                                         else:
                                             number_of_packets_received_exit_code = self.number_of_packets_received
+                                        self.updateIUApp("r_captured_packets", self.number_of_packets_received)
                                     case KISS.CMD_ROM_READ:
                                         self.eeprom = data_buffer
                                     case KISS.CMD_FREQUENCY:
