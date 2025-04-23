@@ -73,32 +73,32 @@ class RNS():
 class KISS():
     FEND            = 0xC0
     FESC            = 0xDB
-    TFEND            = 0xDC
-    TFESC            = 0xDD
+    TFEND           = 0xDC
+    TFESC           = 0xDD
 
-    CMD_UNKNOWN        = 0xFE
+    CMD_UNKNOWN     = 0xFE
     CMD_DATA        = 0x00
-    CMD_FREQUENCY    = 0x01
-    CMD_BANDWIDTH    = 0x02
-    CMD_TXPOWER        = 0x03
-    CMD_SF            = 0x04
+    CMD_FREQUENCY   = 0x01
+    CMD_BANDWIDTH   = 0x02
+    CMD_TXPOWER     = 0x03
+    CMD_SF          = 0x04
     CMD_CR          = 0x05
     CMD_RADIO_STATE = 0x06
-    CMD_RADIO_LOCK    = 0x07
-    CMD_DETECT        = 0x08
+    CMD_RADIO_LOCK  = 0x07
+    CMD_DETECT      = 0x08
     CMD_IMPLICIT    = 0x09
     CMD_PROMISC     = 0x0E
     CMD_READY       = 0x0F
-    CMD_STAT_RX        = 0x21
-    CMD_STAT_TX        = 0x22
-    CMD_STAT_RSSI    = 0x23
+    CMD_STAT_RX     = 0x21
+    CMD_STAT_TX     = 0x22
+    CMD_STAT_RSSI   = 0x23
     CMD_STAT_SNR    = 0x24
     CMD_STAT_CHTM   = 0x25
     CMD_STAT_PHYPRM = 0x26
     CMD_STAT_BAT    = 0x27
     CMD_STAT_CSMA   = 0x28
-    CMD_BLINK        = 0x30
-    CMD_RANDOM        = 0x40
+    CMD_BLINK       = 0x30
+    CMD_RANDOM      = 0x40
     CMD_FW_VERSION  = 0x50
     CMD_ROM_READ    = 0x51
     CMD_ROM_WRITE   = 0x52
@@ -107,13 +107,13 @@ class KISS():
     DETECT_REQ      = 0x73
     DETECT_RESP     = 0x46
     RADIO_STATE_OFF = 0x00
-    RADIO_STATE_ON    = 0x01
+    RADIO_STATE_ON  = 0x01
     RADIO_STATE_ASK = 0xFF
 
-    CMD_ERROR            = 0x90
+    CMD_ERROR           = 0x90
     ERROR_INITRADIO     = 0x01
-    ERROR_TXFAILED        = 0x02
-    ERROR_EEPROM_LOCKED    = 0x03
+    ERROR_TXFAILED      = 0x02
+    ERROR_EEPROM_LOCKED = 0x03
 
     @staticmethod
     def escape(data):
