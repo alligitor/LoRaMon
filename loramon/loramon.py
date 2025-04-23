@@ -109,6 +109,25 @@ class RNode():
         #queue for receiving updates from the UI
         self.queue_from_ui = None
 
+        #From RNode_Firmware
+        #Leaving full code here for reference to the other file
+        #Config.h:    #define BATTERY_STATE_UNKNOWN     0x00
+        #Config.h:    #define BATTERY_STATE_DISCHARGING 0x01
+        #Config.h:    #define BATTERY_STATE_CHARGING    0x02
+        #Config.h:    #define BATTERY_STATE_CHARGED     0x03
+
+        #string, representing the value
+        # ^ Charging
+        # - Charged
+        # v Discharging
+        # ? Unknown
+        self.battery_state_desc = {
+            0x01 : "v",
+            0x02 : "^",
+            0x03 : "-",
+            0x00 : "?"
+        }
+
     def setCapturDuration(self, seconds):
         #set the start time, first
         self.capture_start_time = time.time()
@@ -329,7 +348,11 @@ class RNode():
                                     case KISS.CMD_STAT_BAT:
                                         if (len(data_buffer) == 2):
                                             RNS.log(f"Radio reporting battery state is {data_buffer[0]}, % {data_buffer[1]}")
-                                            self.r_battery = f"S:{data_buffer[0]}, % {data_buffer[1]}"
+                                            try:
+                                                state = self.battery_state_desc[data_buffer[0]]
+                                            except:
+                                                state = "?"
+                                            self.r_battery = f"S: {state}, % {data_buffer[1]}"
                                             self.updateIUApp("r_battery", self.r_battery)
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for battery")
