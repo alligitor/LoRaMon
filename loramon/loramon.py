@@ -779,6 +779,9 @@ def main():
                 #set the setting for print raw data
                 rnode.updateIUApp("print_raw_data", args.R)
 
+                #set the fw version on the ui
+                rnode.updateIUApp("r_fw_version", str(rnode.fw_version))
+
                 loramon_ui_app.run()
                 rnode.thread_continue = False
                 None

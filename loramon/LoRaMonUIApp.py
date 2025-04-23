@@ -43,6 +43,10 @@ class LoRaMonUIApp:
         # Shared queue for sending messages to radio
         self.queue_to_radio = queue_to_radio
 
+        #widget for showing battery status
+        self.firmware_version_widget = urwid.AttrMap(urwid.Text("Radio FW: "), None)
+        menu_widgets.append(self.firmware_version_widget)
+
         #these are caption widgests, showing the paramters that comes from the radio
         self.caption_text_widgets = []
         self.caption_text_widgets.append(urwid.AttrMap(urwid.Text("Radio Freq: "), None))
@@ -61,7 +65,6 @@ class LoRaMonUIApp:
         #add the captions and edit widges to the left menu
         for i in range(len(self.input_edit_widgets)):
             menu_widgets.append(self.caption_text_widgets[i])
-            #don't added the edits, until they are implemented
             menu_widgets.append(self.input_edit_widgets[i])
 
         #widget for showing battery status
@@ -239,6 +242,8 @@ class LoRaMonUIApp:
                 case "print_raw_data":
                     self.print_raw_data_flag = msg["value"]
                     self.print_raw_data_widget.set_label("Print Raw Data: " + str(self.print_raw_data_flag))
+                case "r_fw_version":
+                    self.firmware_version_widget.original_widget.set_text("Radio FW: " + str(msg["value"]))
                 case _:
                     None
         #set the alarm again, so it calls the routing again
