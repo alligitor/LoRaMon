@@ -104,6 +104,7 @@ class KISS():
     CMD_ROM_WRITE   = 0x52
     CMD_CONF_SAVE   = 0x53
     CMD_CONF_DELETE = 0x54
+    CMD_LOG         = 0x80
     DETECT_REQ      = 0x73
     DETECT_RESP     = 0x46
     RADIO_STATE_OFF = 0x00
