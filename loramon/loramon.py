@@ -627,7 +627,7 @@ def main():
         parser.add_argument("--cr", action="store", metavar="rate", type=int, default=None, help="Coding rate")
         parser.add_argument("--implicit", action="store", metavar="length", type=int, default=None, help="Packet length in implicit header mode")
         parser.add_argument("--duration", action="store", metavar="seconds", type=int, default=0,help="Duration of time to capture packets")
-        parser.add_argument("-Q", action="store_true", help="Quite mode, no logging")
+        parser.add_argument("-Q", action="store_true", help="Quiet mode, no logging")
         parser.add_argument("-R", action="store_true", help="Raw frame mode")
         parser.add_argument("-P", action="store_true", help="Set promiscuous mode")
         parser.add_argument("-U", action="store_true", help="Use a URWID based UI")
