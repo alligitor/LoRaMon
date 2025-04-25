@@ -28,7 +28,7 @@ optional arguments:
   --sf factor    Spreading factor
   --cr rate      Coding rate
   --duration s   Duration to scan for in seconds
-  -Q             Quite mode. Don't log any messages after start up
+  -Q             Quiet mode. Don't log any messages after start up
   -R             Print out raw bytes of the frame
   -P             Set promiscuous mode
   -U             Use a text based UI
@@ -86,7 +86,7 @@ If you want to sniff LoRa packets with implicit header mode, use the --implicit 
 loramon /dev/ttyUSB0 --freq 868000000 --bw 125000 --sf 7 --cr 5 -C -W capturedir --implicit 12
 ```
 
-### Use Raw mode to print all received bytes
+### Use Raw mode to print all the received bytes
 
 Using -R, you can have Loramon print out all the bytes that it receives prior to decoding them.
 
@@ -132,9 +132,9 @@ Loramon will return the number of captured packets and the next statement will p
 Number of captured packets : 2
 ```
 
-### Quit Mode
+### Quiet Mode
 
-Using --Q, you can supress all messages that are printed to the console.  The main purupose of this mode is reducing chatter when --duration is used.
+Using -Q, you can supress all messages that are printed to the console.  The main purupose of this mode is reducing chatter when --duration is used.
 
 ```sh
 loramon.py /dev/ttyUSB0 --freq 914875000 --bw 125000 --sf 8 --cr 5 -C --duration 5 -Q ; echo Number of captured packets \: $?
@@ -148,12 +148,12 @@ Number of captured packets : 3
 
 ### UI Mode
 
-Using --U you can enable the experimental UI mode.  The UI was written in python, using urwid text library; which is the same one used for Nomadnet.
-UI mode allows more interaction with Loramon which it is running.  For example, you can
+Using -U you can enable the experimental UI mode.  The UI was written in python, using urwid text library; which is the same one used for Nomadnet.
+UI mode allows more interaction with Loramon while it is running.  For example, you can
 - Change the frequence
+- Change the bandwidth
 - Change the spread factor
 - Change the coding rate
-- Change the bandwidth
 - Turn raw mode on / off
 
 The goal is to have the UI function as dashboard for monitoring the KISS protocol, as well as packets, and other information about the Radio.
