@@ -404,13 +404,18 @@ class RNode():
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for CMD_PROMISC")
                                     case KISS.CMD_LOG:
                                         if (len(data_buffer) >= 3) and (len(data_buffer) <= 258):
-                                            log_string = ""
-                                            for i in range(0,data_buffer[2]+1):
-                                                log_string += chr(data_buffer[3+i])
-                                            RNS.log("Radio reporting log message: " +
-                                                    f"Level: {data_buffer[0]}" +
-                                                    f", Tag: {data_buffer[1]}" +
-                                                    ", log: " + log_string)
+                                            #validate the length field
+                                            string_length = data_buffer[2]+1
+                                            if (string_length == len(data_buffer)-3):
+                                                log_string = ""
+                                                for i in range(0,data_buffer[2]+1):
+                                                    log_string += chr(data_buffer[3+i])
+                                                RNS.log("Radio reporting log message: " +
+                                                        f"Level: {data_buffer[0]}" +
+                                                        f", Tag: {data_buffer[1]}" +
+                                                        ", log: " + log_string)
+                                            else:
+                                                RNS.log(f"Wrong length value {string_length} for CMD_LOG")
                                         else:
                                             RNS.log(f"Wrong number of bytes {len(data_buffer)} for CMD_LOG")
                                     case _: #any command not handled here
