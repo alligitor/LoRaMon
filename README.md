@@ -157,3 +157,7 @@ UI mode allows more interaction with Loramon while it is running.  For example, 
 - Turn raw mode on / off
 
 The goal is to have the UI function as dashboard for monitoring the KISS protocol, as well as packets, and other information about the Radio.
+
+![image](https://github.com/user-attachments/assets/95604e56-e03d-4c8b-b134-7798e2712295)
+
+
